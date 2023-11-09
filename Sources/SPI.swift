@@ -135,26 +135,23 @@ public final class SysFSSPI: SPIInterface {
     /// Write and read bits, will need a few dummy writes if you want only read
     @discardableResult
     private func transferData(_ path: String, tx: [UInt8]) -> [UInt8] {
+        let rx: [UInt8] = [UInt8](repeating:0, count: tx.count)
+
         let fd = open(path, O_RDWR)
+        
         guard fd > 0 else {
             fatalError("Couldn't open the SPI device")
         }
 
-        var tx = tx
-        var rx: [UInt8] = [UInt8](repeating:0, count: tx.count)
+        var tr = spi_ioc_transfer(
+            tx_buf: UInt64( UInt(bitPattern: UnsafeMutablePointer(mutating: tx)) ),
+            rx_buf: UInt64( UInt(bitPattern: UnsafeMutablePointer(mutating: rx)) ),
+            len: UInt32(tx.count),
+            speed_hz: speed,
+            delay_usecs: delay,
+            bits_per_word: bits)
 
-        let r = tx.withUnsafeMutableBufferPointer { txPtr -> CInt in
-            return rx.withUnsafeMutableBufferPointer { rxPtr -> CInt in
-                var tr = spi_ioc_transfer(
-                    tx_buf: txPtr.baseAddress!,
-                    rx_buf: rxPtr.baseAddress!,
-                    len: UInt32(txPtr.count),
-                    speed_hz: speed,
-                    delay_usecs: delay,
-                    bits_per_word: bits)
-                return ioctl(fd, SPI_IOC_MESSAGE1, &tr)
-            }
-        }
+        let r = ioctl(fd, SPI_IOC_MESSAGE1, &tr)
         if r < 1 {
             perror("Couldn't send spi message")
             abort()
