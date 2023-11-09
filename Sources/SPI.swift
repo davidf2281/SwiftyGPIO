@@ -84,8 +84,8 @@ public protocol SPIInterface {
 public final class SysFSSPI: SPIInterface {
 
     struct spi_ioc_transfer {
-        var tx_buf: UInt64
-        var rx_buf: UInt64
+        var tx_buf: UnsafeMutableRawPointer
+        var rx_buf: UnsafeMutableRawPointer
         var len: UInt32
         var speed_hz: UInt32 = 500000
         var delay_usecs: UInt16 = 0
