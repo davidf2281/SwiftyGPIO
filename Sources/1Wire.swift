@@ -87,6 +87,8 @@ public final class SysFSOneWire: OneWireInterface {
         }
 
         close(fd)
+        fclose(file)
+
         return lines      
     }
 
