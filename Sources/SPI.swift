@@ -167,7 +167,6 @@ public final class SysFSSPI: SPIInterface {
         }
         
         if r < 1 {
-            print("Unable to send SPI message. Throwing.")
             throw SPIInterfaceError.unableToSend
         }
 
