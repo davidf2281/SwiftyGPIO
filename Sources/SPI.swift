@@ -69,15 +69,20 @@ extension SwiftyGPIO {
 
 public protocol SPIInterface {
     // Send data at the requested frequency (from 500Khz to 20 Mhz)
-    func sendData(_ values: [UInt8], frequencyHz: UInt)
+    func sendData(_ values: [UInt8], frequencyHz: UInt) throws
     // Send data at the default frequency
-    func sendData(_ values: [UInt8])
+    func sendData(_ values: [UInt8]) throws
     // Send data and then receive a chunck of data at the requested frequency (from 500Khz to 20 Mhz)
-    func sendDataAndRead(_ values: [UInt8], frequencyHz: UInt) -> [UInt8]
+    func sendDataAndRead(_ values: [UInt8], frequencyHz: UInt) throws -> [UInt8]
     // Send data and then receive a chunck of data at the default frequency
-    func sendDataAndRead(_ values: [UInt8]) -> [UInt8]
+    func sendDataAndRead(_ values: [UInt8]) throws -> [UInt8]
     // Returns true if the SPIInterface is using a real SPI pin, false if performing bit-banging
     var isHardware: Bool { get }
+}
+
+public enum SPIInterfaceError: Error {
+    case openSPI
+    case unableToSend
 }
 
 /// Hardware SPI via SysFS
@@ -109,35 +114,40 @@ public final class SysFSSPI: SPIInterface {
 
     public var isHardware =  true
 
-    public func sendData(_ values: [UInt8], frequencyHz: UInt = 500000) {
+    public func sendData(_ values: [UInt8], frequencyHz: UInt = 500000) throws {
         if frequencyHz > 500000 {
             speed = UInt32(frequencyHz)
         }
-        transferData(SPIBASEPATH+spiId, tx:values)
+        try transferData(SPIBASEPATH+spiId, tx:values)
     }
 
-    public func sendData(_ values: [UInt8]) {
-        sendData(values, frequencyHz: 500000)
+    public func sendData(_ values: [UInt8]) throws {
+        try sendData(values, frequencyHz: 500000)
     }
 
-    public func sendDataAndRead(_ values: [UInt8], frequencyHz: UInt = 500000) -> [UInt8] {
+    public func sendDataAndRead(_ values: [UInt8], frequencyHz: UInt = 500000) throws -> [UInt8] {
         if frequencyHz > 500000 {
             speed = UInt32(frequencyHz)
         }
-        let rx = transferData(SPIBASEPATH+spiId, tx:values)
+        let rx = try transferData(SPIBASEPATH+spiId, tx:values)
         return rx
     }
 
-    public func sendDataAndRead(_ values: [UInt8]) -> [UInt8] {
-        return sendDataAndRead(values, frequencyHz: 500000)
+    public func sendDataAndRead(_ values: [UInt8]) throws -> [UInt8] {
+        return try sendDataAndRead(values, frequencyHz: 500000)
     }
 
     /// Write and read bits, will need a few dummy writes if you want only read
     @discardableResult
-    private func transferData(_ path: String, tx: [UInt8]) -> [UInt8] {
+    private func transferData(_ path: String, tx: [UInt8]) throws -> [UInt8] {
         let fd = open(path, O_RDWR)
+
         guard fd > 0 else {
-            fatalError("Couldn't open the SPI device")
+            throw SPIInterfaceError.openSPI
+        }
+        
+        defer {
+            close(fd)
         }
 
         var tx = tx
@@ -155,11 +165,10 @@ public final class SysFSSPI: SPIInterface {
                 return ioctl(fd, SPI_IOC_MESSAGE1, &tr)
             }
         }
+        
         if r < 1 {
-            perror("Couldn't send spi message")
-            abort()
+            throw SPIInterfaceError.unableToSend
         }
-        close(fd)
 
         return rx
     }
