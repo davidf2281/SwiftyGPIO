@@ -60,8 +60,6 @@ public enum OneWireInterfaceError: Error {
     case readError
 }
 
-
-
 /// Hardware 1-Wire via SysFS
 public final class SysFSOneWire: OneWireInterface {
 
